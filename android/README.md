@@ -1,85 +1,94 @@
 # JSRF Unleashed for Android (experimental)
 
-The Android branch now has a native import screen. The player can choose either
-a folder containing `default.xbe` or an Xbox ISO/XISO; the app copies the
-selected files into its private app-specific storage. It uses Android's Storage
-Access Framework and does not ask for broad storage permissions.
+The Android branch includes a launcher/import screen. It accepts a folder
+containing `default.xbe` or an Xbox ISO/XISO image and copies/extracts the
+player's own files into private app storage. The import screen uses Android's
+Storage Access Framework, so it does not request broad storage permissions.
 
-The gameplay runtime remains experimental and uses **Android ARM64** with SDL2
-and OpenGL ES 3.2. A successful build of the importer or runtime libraries is
-not proof that the game is playable on a device.
+The game runtime is generated from the compatible US/NTSC-U executable and
+uses Android ARM64, SDL2 and OpenGL ES 3.2. Runtime rendering and gameplay have
+not yet been validated through a full playthrough on a physical device.
 
-## Command-line build (no Android Studio required)
+## Build a playable APK on Windows without Android Studio
 
-Install JDK 17, Android command-line SDK tools, Gradle 8.9 or newer, and these
-Android SDK packages:
+Install these command-line tools:
 
-- Platform 35
-- Build-tools 35.0.0
-- NDK 27.2.12479018
-- CMake 3.22.1
+- Python 3.10 or newer
+- JDK 17 or newer
+- Gradle 8.9 or newer
+- Android SDK command-line tools (not the Android Studio IDE)
 
-Set `ANDROID_HOME` to your SDK directory and make sure `platform-tools`,
-`cmdline-tools/latest/bin`, and Gradle's `bin` directory are on `PATH`.
-The first build downloads AndroidX DocumentFile and the pinned SDL2 source tree.
+Set `ANDROID_HOME` (or `ANDROID_SDK_ROOT`) to your SDK directory. The script
+will install/verify Platform 35, Build Tools 35.0.0, NDK 27.2.12479018 and
+CMake 3.22.1 if `cmdline-tools/latest/bin/sdkmanager.bat` is present. Accept
+the SDK licences with `sdkmanager --licenses` when prompted.
 
-To compile an **importer-only test APK** (no game runtime, unless local
-generated code exists):
+From PowerShell at the repository root, pass the path to your own compatible
+`default.xbe`:
 
-```sh
-cd android
-gradle assembleDebug
+```powershell
+.\scripts\build_android.ps1 -XbePath "D:\Games\JSRF\default.xbe"
 ```
 
-The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
-The same APK can be built by the GitHub Actions workflow
-`Android APK (importer shell)`; download its artifact from the completed run.
-That public CI build deliberately does not contain game-derived machine code,
-so its Play button stays disabled.
+The script runs the XBE parser, disassembler, function identification and
+recompiler in order, then runs Gradle to create the ARM64 APK. Generated C
+files stay local and are not committed. The final APK is copied to:
 
-## Build a playable APK from your own game copy
-
-The gameplay runtime embeds C translated from the compatible US/NTSC-U
-`default.xbe`. The generated code is intentionally not committed. From the
-repository root, install the Python dependency and generate the translation
-from your own legally obtained copy:
-
-```sh
-py -3 -m pip install capstone
-py -3 -m tools.recomp "C:\\path\\to\\game\\default.xbe" --all --split 1000 --exclude-manual port/recomp_manual.c --gen-dir port/recomp/gen
+```text
+build-android\JSRF-Unleashed-Android-debug.apk
 ```
 
-Confirm that `port/recomp/gen/recomp_types.h` exists, then build:
+For the script to install Android SDK packages automatically, the SDK command
+line tools must be located at `%ANDROID_HOME%\cmdline-tools\latest\bin`.
+You can also install the required SDK packages yourself and use the script
+with an SDK that does not contain sdkmanager.
 
-```sh
-cd android
-gradle assembleDebug
+To rebuild without regenerating the code, first ensure
+`port\recomp\gen\recomp_types.h` and the other generated C files are still
+present, then run:
+
+```powershell
+.\scripts\build_android.ps1 -XbePath "D:\Games\JSRF\default.xbe" -SkipRecompile
 ```
 
-Gradle detects the generated code and configures CMake to build the game
-runtime into the APK. To use an alternate generated-code directory, pass
-`-PjsrfGenDir=/absolute/path/to/recomp/gen`.
+The recompiler step can take several minutes. Use a compatible executable
+matching the revision supported by this port; choosing a different region or
+revision is not guaranteed to work.
+
+## Build the public importer-only APK through GitHub Actions
+
+The workflow `Android APK (importer shell)` builds a test APK without any
+game-derived C translation. It is useful for checking the import screen and
+ISO extractor, but its Play button remains disabled. The generated artifact
+is named `jsrf-android-importer-arm64` and is kept for 14 days.
+
+- [Open Android APK workflow runs](https://github.com/Other-backup/JetSetRadioFuture-Unleashed/actions/workflows/android-apk.yml)
 
 ## Using the app
 
-1. Install and open the APK.
-2. Tap **Selecionar pasta do jogo** and choose the folder where `default.xbe`
-   exists directly, or tap **Importar ISO / XISO** and choose an `.iso` or
-   `.xiso` disc image.
-3. Wait for copying/extraction to finish. Images need additional free space
-   while being unpacked.
-4. With a runtime-enabled APK and a valid imported game, tap **Jogar**.
+1. Install the APK.
+2. Tap **Selecionar pasta do jogo** and select the folder where `default.xbe`
+   exists directly, or tap **Importar ISO / XISO** and select an `.iso` or
+   `.xiso` image.
+3. Wait for copying or extraction to finish. An image requires additional free
+   space while it is unpacked.
+4. On a runtime-enabled APK and a device that supports OpenGL ES 3.2, tap
+   **Jogar**.
 
-The game files end up at `Android/data/org.otherbackup.jsrfunleashed.debug/files/game`
-for a debug build. The native runtime reads the same app-specific storage path.
+The files are stored in the app-specific external directory, under
+`files/game`. On a debug build its path is normally:
+
+```text
+Android/data/org.otherbackup.jsrfunleashed.debug/files/game/
+```
 
 ## Current limitations
 
-- This is an early Android GLES 3.2 renderer port and has not been validated
-  through a full playthrough on physical hardware.
-- The public importer-only APK can import/extract game files but cannot run
-  the game until built with the locally generated native game code.
-- Runtime video playback does not yet have a dedicated Android media decoder.
-- Desktop OpenGL behavior such as depth clamping is not available on all GLES
+- The Android renderer is an experimental OpenGL ES 3.2 translation and is not
+  yet validated through a full playthrough.
+- The public CI APK imports/extracts data but does not include generated game
+  code; it cannot run the game.
+- Video/FMVs do not yet have a dedicated Android media playback path.
+- Desktop OpenGL behavior such as depth clamping is unavailable on all GLES
   drivers.
-- Only the ARM64 ABI is enabled.
+- Only the ARM64 ABI is enabled for now.
