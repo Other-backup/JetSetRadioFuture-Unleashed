@@ -195,21 +195,34 @@ public final class JSRFLauncherActivity extends Activity {
         }
     }
 
+    private boolean supportsGles32() {
+        android.app.ActivityManager manager =
+                (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        if (manager == null) {
+            return false;
+        }
+        android.content.pm.ConfigurationInfo info = manager.getDeviceConfigurationInfo();
+        return info != null && info.reqGlEsVersion >= 0x00030002;
+    }
+
     private void refreshState() {
         if (busy) {
             return;
         }
         boolean hasGame = hasGameFiles();
+        boolean graphicsOk = supportsGles32();
         folderButton.setEnabled(true);
         imageButton.setEnabled(true);
-        launchButton.setEnabled(BuildConfig.JSRF_RUNTIME_AVAILABLE && hasGame);
+        launchButton.setEnabled(BuildConfig.JSRF_RUNTIME_AVAILABLE && hasGame && graphicsOk);
 
         if (!BuildConfig.JSRF_RUNTIME_AVAILABLE) {
             statusView.setText((hasGame
                     ? "Arquivos do jogo importados. "
                     : "Nenhum jogo importado. ")
                     + "Esta build contém o importador, mas ainda não inclui o runtime compilado. "
-                    + "Para jogar, é necessário gerar o código nativo localmente e reconstruir o APK.");
+                    + "Para jogar, é necessário gerar o código nativo durante a build do APK.");
+        } else if (!graphicsOk) {
+            statusView.setText("Seu aparelho não anuncia suporte a OpenGL ES 3.2. Você pode importar os arquivos, mas este porte não poderá iniciar o jogo neste dispositivo.");
         } else if (hasGame) {
             statusView.setText("Jogo importado. Pronto para iniciar.");
         } else {
@@ -535,7 +548,12 @@ public final class JSRFLauncherActivity extends Activity {
     private void launchGame() {
         if (!BuildConfig.JSRF_RUNTIME_AVAILABLE) {
             showError("Runtime não incluído",
-                    "Esta build valida o importador, mas não contém o código nativo do jogo. Gere o código localmente e compile o APK completo.");
+                    "Esta build valida o importador, mas não contém o código nativo do jogo. Gere o código durante a build do APK completo.");
+            return;
+        }
+        if (!supportsGles32()) {
+            showError("GPU incompatível",
+                    "O porte Android requer suporte a OpenGL ES 3.2. Este dispositivo não anuncia essa versão.");
             return;
         }
         if (!hasGameFiles()) {
