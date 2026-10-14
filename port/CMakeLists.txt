@@ -50,6 +50,10 @@ endif()
 # publish the Android shell without putting game-derived code in the repo.
 # A playable build must explicitly include the generated translation.
 if(ANDROID)
+    # The generated Xbox code expects the same plain-char behavior used by
+    # the x86 and Apple Silicon builds.
+    add_compile_options(-fsigned-char)
+
     if(NOT DEFINED JSRF_BUILD_GAME)
         set(_jsrf_build_game_default ${JSRF_GEN_AVAILABLE})
         set(JSRF_BUILD_GAME ${_jsrf_build_game_default} CACHE BOOL
@@ -140,6 +144,7 @@ if(ANDROID)
     add_library(jsrf_recomp SHARED
         main.c
         recomp_manual.c
+        android/jsrf_android.c
         ${JSRF_GEN_SOURCES}
     )
     set_target_properties(jsrf_recomp PROPERTIES OUTPUT_NAME "main")
@@ -201,7 +206,11 @@ if(WIN32 AND XBOXRECOMP_WIN_GL)
 elseif(WIN32)
     target_link_libraries(jsrf_recomp PRIVATE d3d11 dxgi dxguid xinput winmm dbghelp)
 elseif(ANDROID)
-    target_link_libraries(jsrf_recomp PRIVATE android log)
+    target_link_libraries(jsrf_recomp PRIVATE m dl log android)
+    # This library is loaded by SDLActivity, not launched as a standalone
+    # executable. Resolve all runtime symbols now and bind the generated
+    # game's internal calls directly.
+    target_link_options(jsrf_recomp PRIVATE -Wl,--no-undefined -Wl,-Bsymbolic)
 else()
     target_link_libraries(jsrf_recomp PRIVATE pthread m dl)
     target_link_options(jsrf_recomp PRIVATE -rdynamic)
