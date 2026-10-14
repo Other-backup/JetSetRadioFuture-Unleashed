@@ -9,6 +9,7 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.os.ParcelFileDescriptor;
 import android.provider.OpenableColumns;
 import android.view.Gravity;
 import android.view.View;
@@ -318,30 +319,42 @@ public final class JSRFLauncherActivity extends Activity {
     }
 
     private void importDiscImage(Uri sourceUri, String sourceName) {
-        beginBusy("Copiando a imagem de disco…");
+        beginBusy("Preparando a imagem de disco…");
         worker.execute(() -> {
             File staging = null;
             File image = null;
             try {
                 File base = storageBase();
-                image = new File(base, "jsrf-import-image.iso");
                 staging = new File(base, "game.importing");
+                image = new File(base, "jsrf-import-image.iso");
                 deleteRecursively(image);
                 deleteRecursively(staging);
-
-                copyUriToFile(sourceUri, image, sourceName);
-                updateStatus("Extraindo a imagem Xbox. Isso pode levar alguns minutos…");
                 if (!staging.mkdirs() && !staging.isDirectory()) {
                     throw new IOException("Não foi possível criar a pasta temporária.");
                 }
-                String error = XisoNative.extractXiso(image.getAbsolutePath(),
-                        staging.getAbsolutePath());
-                if (error != null && !error.isEmpty()) {
-                    throw new IOException(error);
+
+                boolean extractedDirectly = tryDirectExtract(sourceUri, staging);
+                if (!extractedDirectly) {
+                    // Some document providers expose a pipe instead of a seekable file
+                    // descriptor. Only those sources need the extra image copy.
+                    deleteRecursively(staging);
+                    if (!staging.mkdirs() && !staging.isDirectory()) {
+                        throw new IOException("Não foi possível criar a pasta temporária.");
+                    }
+                    copyUriToFile(sourceUri, image, sourceName);
+                    updateStatus("Extraindo a imagem Xbox. Isso pode levar alguns minutos…");
+                    String error = XisoNative.extractXiso(image.getAbsolutePath(),
+                            staging.getAbsolutePath());
+                    if (error != null && !error.isEmpty()) {
+                        throw new IOException(error);
+                    }
                 }
+
                 validateGame(staging);
                 installStaging(staging, new File(base, "game"));
-                finishTask(null, "Imagem extraída e jogo importado.");
+                finishTask(null, extractedDirectly
+                        ? "Imagem extraída diretamente, sem copiar a ISO para o armazenamento."
+                        : "Imagem copiada temporariamente e extraída. A cópia temporária foi removida.");
             } catch (Exception ex) {
                 if (staging != null) {
                     deleteRecursively(staging);
@@ -353,6 +366,32 @@ public final class JSRFLauncherActivity extends Activity {
                 }
             }
         });
+    }
+
+    private boolean tryDirectExtract(Uri sourceUri, File staging) throws IOException {
+        final ParcelFileDescriptor descriptor;
+        try {
+            descriptor = getContentResolver().openFileDescriptor(sourceUri, "r");
+        } catch (IOException | SecurityException ex) {
+            return false;
+        }
+        if (descriptor == null) {
+            return false;
+        }
+
+        try (ParcelFileDescriptor imageDescriptor = descriptor) {
+            if (!XisoNative.probeXisoFd(imageDescriptor.getFd())) {
+                return false;
+            }
+
+            updateStatus("Extraindo diretamente da imagem, sem criar uma cópia temporária…");
+            String error = XisoNative.extractXisoFd(imageDescriptor.getFd(),
+                    staging.getAbsolutePath());
+            if (error != null && !error.isEmpty()) {
+                throw new IOException(error);
+            }
+            return true;
+        }
     }
 
     private void copyUriToFile(Uri uri, File destination, String name) throws IOException {
