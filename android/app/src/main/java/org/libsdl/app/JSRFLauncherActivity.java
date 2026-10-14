@@ -420,6 +420,21 @@ public final class JSRFLauncherActivity extends Activity {
 
     private void validateGame(File directory) throws IOException {
         File xbe = new File(directory, "default.xbe");
+        if (!xbe.isFile()) {
+            // XDVDFS is case-insensitive, but the Android filesystem is not.
+            // Normalize the required executable name so the native loader can open it.
+            File[] entries = directory.listFiles();
+            if (entries != null) {
+                for (File entry : entries) {
+                    if (entry.isFile() && "default.xbe".equalsIgnoreCase(entry.getName())) {
+                        if (!entry.renameTo(xbe)) {
+                            throw new IOException("Não foi possível normalizar o nome de default.xbe.");
+                        }
+                        break;
+                    }
+                }
+            }
+        }
         if (!xbe.isFile() || xbe.length() == 0) {
             throw new IOException("Não encontrei um default.xbe válido na raiz dos arquivos importados.");
         }
