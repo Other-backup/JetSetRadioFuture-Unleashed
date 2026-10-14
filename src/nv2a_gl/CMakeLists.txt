@@ -24,6 +24,30 @@ if(IOS)
     return()
 endif()
 
+if(ANDROID)
+    # Android: SDL owns the native window and provides an OpenGL ES 3.2 context.
+    add_library(xbox_nv2a_gl STATIC
+        nv2a_vsh.c
+        nv2a_vsh_interp.c
+        nv2a_psh.c
+        nv2a_uniforms.c
+        nv2a_gl.c
+        nv2a_gfx_gl.c
+    )
+    target_include_directories(xbox_nv2a_gl PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../d3d
+    )
+    target_compile_definitions(xbox_nv2a_gl PUBLIC
+        NV2A_GL_USE_SDL=1
+        NV2A_GL_GLES=1
+    )
+    target_link_libraries(xbox_nv2a_gl PUBLIC SDL2::SDL2 GLESv3 EGL m)
+    target_compile_options(xbox_nv2a_gl PRIVATE -Wall -Wextra -O2)
+    message(STATUS "nv2a_gl context: SDL2 / OpenGL ES 3.2 (Android)")
+    return()
+endif()
+
 set(NV2A_GL_SOURCES
     nv2a_vsh.c
     nv2a_vsh_interp.c
