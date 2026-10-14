@@ -1,0 +1,67 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "JSRFUnleashedAndroid"
+include(":app")
+
+// SDL2 supplies both the Android Java activity and its CMake target. Keep the
+// pinned source outside git so the repository carries no vendored SDL copy.
+def sdlVersion = "release-2.30.11"
+def cacheRoot = new File(settingsDir, ".cache")
+def sdlRoot = new File(cacheRoot, "SDL2")
+def sdlActivity = new File(sdlRoot, "android-project/app/src/main/java/org/libsdl/app/SDLActivity.java")
+
+if (!new File(sdlRoot, "CMakeLists.txt").isFile() || !sdlActivity.isFile()) {
+    cacheRoot.mkdirs()
+    if (sdlRoot.exists()) {
+        sdlRoot.deleteDir()
+    }
+
+    def archive = new File(cacheRoot, "SDL2-${sdlVersion}.zip")
+    if (!archive.isFile()) {
+        def connection = new URL("https://github.com/libsdl-org/SDL/archive/refs/tags/${sdlVersion}.zip").openConnection()
+        connection.connectTimeout = 20000
+        connection.readTimeout = 60000
+        connection.inputStream.withCloseable { input ->
+            archive.withOutputStream { output -> input.transferTo(output) }
+        }
+    }
+
+    new java.util.zip.ZipFile(archive).withCloseable { zip ->
+        def prefix = "SDL-${sdlVersion}/"
+        def entries = zip.entries()
+        while (entries.hasMoreElements()) {
+            def entry = entries.nextElement()
+            if (!entry.name.startsWith(prefix)) {
+                continue
+            }
+            def relative = entry.name.substring(prefix.length())
+            if (!relative || relative.startsWith("/") ||
+                    relative.split("/").any { part -> part == ".." }) {
+                continue
+            }
+            def destination = new File(sdlRoot, relative)
+            if (entry.isDirectory()) {
+                destination.mkdirs()
+            } else {
+                destination.parentFile.mkdirs()
+                zip.getInputStream(entry).withCloseable { input ->
+                    destination.withOutputStream { output -> input.transferTo(output) }
+                }
+            }
+        }
+    }
+}
