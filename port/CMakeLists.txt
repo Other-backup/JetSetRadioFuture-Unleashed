@@ -40,11 +40,41 @@ get_filename_component(JSRF_REPO "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 
 set(JSRF_GEN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/recomp/gen" CACHE PATH
     "The generated code: a folder named recomp/gen")
-if(NOT EXISTS "${JSRF_GEN_DIR}/recomp_types.h")
+set(JSRF_GEN_AVAILABLE OFF)
+if(EXISTS "${JSRF_GEN_DIR}/recomp_types.h")
+    set(JSRF_GEN_AVAILABLE ON)
+endif()
+
+# Android can build the installer/importer UI and XISO unpacker before the
+# private, generated C translation is available. That lets CI validate and
+# publish the Android shell without putting game-derived code in the repo.
+# A playable build must explicitly include the generated translation.
+if(ANDROID)
+    if(NOT DEFINED JSRF_BUILD_GAME)
+        set(_jsrf_build_game_default ${JSRF_GEN_AVAILABLE})
+        set(JSRF_BUILD_GAME ${_jsrf_build_game_default} CACHE BOOL
+            "Build the game runtime (requires locally generated recomp C code)")
+    endif()
+
+    add_library(jsrf_xiso SHARED
+        ios/xiso.c
+        android/xiso_jni.c
+    )
+    target_include_directories(jsrf_xiso PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ios")
+    target_compile_features(jsrf_xiso PRIVATE c_std_11)
+
+    if(NOT JSRF_BUILD_GAME)
+        message(STATUS "Building Android importer/XISO library only; game runtime is disabled")
+        return()
+    endif()
+endif()
+
+if(NOT JSRF_GEN_AVAILABLE)
     message(FATAL_ERROR "No generated code in ${JSRF_GEN_DIR}. Generate it from your "
                         "own default.xbe with tools/recomp (see docs/GETTING_STARTED.md), "
                         "or set JSRF_GEN_DIR.")
 endif()
+
 # recomp_manual.c includes "recomp/gen/recomp_types.h": the folder two
 # levels above the generated code goes on the include path.
 get_filename_component(JSRF_GEN_ROOT "${JSRF_GEN_DIR}/../.." ABSOLUTE)
