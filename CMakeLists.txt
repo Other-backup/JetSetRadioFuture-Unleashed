@@ -16,6 +16,23 @@ project(xboxrecomp VERSION 0.8.0 LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+# Android uses SDL2 for the window, audio and controller backends. Gradle may
+# provide a cached source tree using FETCHCONTENT_SOURCE_DIR_SDL2.
+if(ANDROID)
+    include(FetchContent)
+    set(SDL_SHARED ON CACHE BOOL "Build SDL2 shared for Android packaging" FORCE)
+    set(SDL_STATIC OFF CACHE BOOL "Use SDL2 shared on Android" FORCE)
+    set(SDL_TEST OFF CACHE BOOL "Do not build SDL tests" FORCE)
+    set(SDL_TESTS OFF CACHE BOOL "Do not build SDL tests" FORCE)
+    set(SDL2_DISABLE_INSTALL ON CACHE BOOL "SDL is an in-tree dependency" FORCE)
+    FetchContent_Declare(SDL2
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG release-2.30.11
+        GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(SDL2)
+endif()
+
 # Common definitions for all targets
 add_compile_definitions(
     WIN32_LEAN_AND_MEAN
@@ -55,7 +72,7 @@ add_subdirectory(src/apu)
 add_subdirectory(src/nv2a)
 
 # NV2A -> OpenGL translation (POSIX, and Windows with XBOXRECOMP_WIN_GL)
-if(NOT WIN32 OR XBOXRECOMP_WIN_GL)
+if(NOT WIN32 OR XBOXRECOMP_WIN_GL OR ANDROID)
     add_subdirectory(src/nv2a_gl)
 endif()
 
