@@ -130,6 +130,7 @@ public class JSRFActivity extends SDLActivity
             .setItems(items, (d, which) -> {
                 switch (which) {
                 case 0:
+                    Settings.set(this, "widescreen", wide ? 0 : 1);
                     nativeSetWidescreen(!wide);
                     break;
                 case 1:
