@@ -1,9 +1,11 @@
 # JSRF Unleashed for Android (experimental)
 
 The Android branch includes a launcher/import screen. It accepts a folder
-containing `default.xbe` or an Xbox ISO/XISO image and copies/extracts the
-player's own files into private app storage. The import screen uses Android's
-Storage Access Framework, so it does not request broad storage permissions.
+containing `default.xbe` or an Xbox ISO/XISO image and imports the player's own
+files into app-specific storage. On seekable Storage Access Framework sources,
+ISO/XISO files are extracted directly from a read-only file descriptor, avoiding
+a second full-size copy of the disc image. Providers that only expose a stream
+fall back to a temporary image copy. No broad storage permissions are requested.
 
 The game runtime is generated from the compatible US/NTSC-U executable and
 uses Android ARM64, SDL2 and OpenGL ES 3.2. Runtime rendering and gameplay have
@@ -70,8 +72,9 @@ is named `jsrf-android-importer-arm64` and is kept for 14 days.
 2. Tap **Selecionar pasta do jogo** and select the folder where `default.xbe`
    exists directly, or tap **Importar ISO / XISO** and select an `.iso` or
    `.xiso` image.
-3. Wait for copying or extraction to finish. An image requires additional free
-   space while it is unpacked.
+3. Wait for copying or extraction to finish. Seekable ISO/XISO sources are
+   unpacked without duplicating the whole image; some cloud/document providers
+   require a temporary image copy if they do not support random-access reads.
 4. On a runtime-enabled APK and a device that supports OpenGL ES 3.2, tap
    **Jogar**.
 
