@@ -1,69 +1,85 @@
 # JSRF Unleashed for Android (experimental)
 
-This is an early Android build path for the native JSRF Unleashed runtime. It
-targets **Android ARM64** and uses SDL2 with an OpenGL ES 3.2 context. The
-Android renderer path is new and has not yet been validated on a device; a
-successful CMake build is not proof that the game is playable.
+The Android branch now has a native import screen. The player can choose either
+a folder containing `default.xbe` or an Xbox ISO/XISO; the app copies the
+selected files into its private app-specific storage. It uses Android's Storage
+Access Framework and does not ask for broad storage permissions.
 
-## Requirements
+The gameplay runtime remains experimental and uses **Android ARM64** with SDL2
+and OpenGL ES 3.2. A successful build of the importer or runtime libraries is
+not proof that the game is playable on a device.
 
-- Android SDK and NDK (NDK 27.2.12479018 is used by CI)
-- JDK 17
-- Gradle 8.9 or newer, with Android Gradle Plugin 8.7.3 available
-- A generated game-code directory at `port/recomp/gen`
-- Your own compatible US/NTSC-U Jet Set Radio Future game files
+## Command-line build (no Android Studio required)
 
-The first Gradle settings sync downloads the pinned SDL2 source archive into
-`android/.cache/SDL2`. This provides SDL's Android Java support classes and
-the SDL2 CMake target without committing a vendored SDL copy.
+Install JDK 17, Android command-line SDK tools, Gradle 8.9 or newer, and these
+Android SDK packages:
 
-## Generate the game code
+- Platform 35
+- Build-tools 35.0.0
+- NDK 27.2.12479018
+- CMake 3.22.1
 
-The generated game translation is intentionally not included in this repository.
-Generate it from your own compatible `default.xbe` using the included pipeline;
-do not upload the generated files or game assets to CI or Releases.
+Set `ANDROID_HOME` to your SDK directory and make sure `platform-tools`,
+`cmdline-tools/latest/bin`, and Gradle's `bin` directory are on `PATH`.
+The first build downloads AndroidX DocumentFile and the pinned SDL2 source tree.
 
-From the repository root, for example:
-
-```sh
-python -m tools.recomp /path/to/your/game/default.xbe --all --split 1000 \
-  --exclude-manual port/recomp_manual.c --gen-dir port/recomp/gen
-```
-
-The exact arguments may need to follow the current pipeline's help output and
-the matching XBE revision. The normal CMake configure step fails clearly when
-`recomp_types.h` is absent.
-
-## Build the APK
-
-With Gradle on PATH:
+To compile an **importer-only test APK** (no game runtime, unless local
+generated code exists):
 
 ```sh
 cd android
 gradle assembleDebug
 ```
 
-The APK is written under `android/app/build/outputs/apk/debug/`. To use a
-generated-code directory outside this checkout, pass its absolute path:
+The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
+The same APK can be built by the GitHub Actions workflow
+`Android APK (importer shell)`; download its artifact from the completed run.
+That public CI build deliberately does not contain game-derived machine code,
+so its Play button stays disabled.
+
+## Build a playable APK from your own game copy
+
+The gameplay runtime embeds C translated from the compatible US/NTSC-U
+`default.xbe`. The generated code is intentionally not committed. From the
+repository root, install the Python dependency and generate the translation
+from your own legally obtained copy:
 
 ```sh
-gradle assembleDebug -PjsrfGenDir=/absolute/path/to/recomp/gen
+py -3 -m pip install capstone
+py -3 -m tools.recomp "C:\\path\\to\\game\\default.xbe" --all --split 1000 --exclude-manual port/recomp_manual.c --gen-dir port/recomp/gen
 ```
 
-Only `arm64-v8a` is enabled for now. The runtime expects the extracted game
-folder (containing `default.xbe` and the game's data) at the app-specific
-external-files path ending in `/files/game`. This avoids requesting broad
-storage permissions. Copy the files there using Android's file manager or
-ADB after installing the APK.
+Confirm that `port/recomp/gen/recomp_types.h` exists, then build:
 
-## Known limitations
+```sh
+cd android
+gradle assembleDebug
+```
 
-- Experimental GLES translation; desktop OpenGL-specific behavior such as
-  depth clamping is not available on every GLES driver.
-- The Android app currently has no in-app file picker or unpack screen.
-- Runtime video playback outside the existing platform-specific decoder is
-  not implemented as an Android media path.
-- This repository does not include game code, game media, or the generated
-  `port/recomp/gen` files, so a public CI runner can validate the runtime
-  libraries but cannot produce a playable APK without the locally generated
-  code.
+Gradle detects the generated code and configures CMake to build the game
+runtime into the APK. To use an alternate generated-code directory, pass
+`-PjsrfGenDir=/absolute/path/to/recomp/gen`.
+
+## Using the app
+
+1. Install and open the APK.
+2. Tap **Selecionar pasta do jogo** and choose the folder where `default.xbe`
+   exists directly, or tap **Importar ISO / XISO** and choose an `.iso` or
+   `.xiso` disc image.
+3. Wait for copying/extraction to finish. Images need additional free space
+   while being unpacked.
+4. With a runtime-enabled APK and a valid imported game, tap **Jogar**.
+
+The game files end up at `Android/data/org.otherbackup.jsrfunleashed.debug/files/game`
+for a debug build. The native runtime reads the same app-specific storage path.
+
+## Current limitations
+
+- This is an early Android GLES 3.2 renderer port and has not been validated
+  through a full playthrough on physical hardware.
+- The public importer-only APK can import/extract game files but cannot run
+  the game until built with the locally generated native game code.
+- Runtime video playback does not yet have a dedicated Android media decoder.
+- Desktop OpenGL behavior such as depth clamping is not available on all GLES
+  drivers.
+- Only the ARM64 ABI is enabled.
