@@ -29,6 +29,7 @@
 #include <sched.h>
 #include <fenv.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
 #if defined(__APPLE__)
 #include <sys/sysctl.h>
 #include <sys/stat.h>
@@ -1183,6 +1184,14 @@ BOOL TerminateThread(HANDLE h, DWORD exitCode)
 {
     w32_object *o = obj_any(h);
     if (!o || o->kind != K_THREAD) return FALSE;
+#if defined(__ANDROID__)
+    /* Android's bionic libc does not expose pthread_cancel. Pretending that
+     * the worker was killed would let callers free state it may still use.
+     * Fail explicitly until this layer has cooperative thread cancellation. */
+    (void)exitCode;
+    SetLastError(ERROR_NOT_SUPPORTED);
+    return FALSE;
+#else
     pthread_cancel(o->thread);
     pthread_mutex_lock(&o->lock);
     o->exit_code = exitCode;
@@ -1191,6 +1200,7 @@ BOOL TerminateThread(HANDLE h, DWORD exitCode)
     pthread_cond_broadcast(&o->cond);
     pthread_mutex_unlock(&o->lock);
     return TRUE;
+#endif
 }
 
 BOOL SetThreadPriority(HANDLE h, int priority)
@@ -1677,18 +1687,12 @@ VOID DebugBreak(void) {
 
 VOID SecureZeroMemory(PVOID ptr, SIZE_T cnt)
 {
-#if defined(__APPLE__)
-    /* Darwin's memset_s is only declared when __STDC_WANT_LIB_EXT1__ is set
-     * before every string.h in the translation unit, which is not something a
-     * compat header can promise. A volatile store cannot be optimised away
-     * either, and needs no cooperation from libc. */
+    /* Use volatile stores on every host: they cannot be optimized away,
+     * and Android's bionic does not expose explicit_bzero on every API level. */
     {
         volatile unsigned char *q = (volatile unsigned char *)ptr;
         while (cnt--) *q++ = 0;
     }
-#else
-    explicit_bzero(ptr, cnt);
-#endif
 }
 
 unsigned int _clearfp(void)
@@ -1936,7 +1940,19 @@ static size_t view_take(const void *addr)
  * memfd_create for this; elsewhere an immediately-unlinked temp file does. */
 static int anon_map_fd(const char *name)
 {
-#if defined(__APPLE__)
+#if defined(__ANDROID__)
+    /* bionic has no portable memfd_create wrapper. Use the kernel syscall
+     * directly; unlike /tmp-backed files, a memfd needs no writable path. */
+#  if defined(SYS_memfd_create)
+    return (int)syscall(SYS_memfd_create, name ? name : "xbox_map", 0);
+#  elif defined(__NR_memfd_create)
+    return (int)syscall(__NR_memfd_create, name ? name : "xbox_map", 0);
+#  else
+    (void)name;
+    errno = ENOSYS;
+    return -1;
+#  endif
+#elif defined(__APPLE__)
     /* Darwin has no memfd_create. POSIX shared memory is the closest thing:
      * shm_open gives a descriptor that ftruncate and MAP_SHARED both accept,
      * and unlinking the name immediately leaves an object that lives only as
