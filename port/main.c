@@ -66,6 +66,8 @@
 #include <math.h>
 #if defined(__ANDROID__)
 #include <SDL.h>
+#undef main
+#define main SDL_main
 #endif
 
 /* The version (port/CMakeLists.txt passes the release tag); a build that
