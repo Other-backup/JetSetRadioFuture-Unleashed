@@ -48,6 +48,7 @@ public final class JSRFLauncherActivity extends Activity {
     private Button folderButton;
     private Button imageButton;
     private Button launchButton;
+    private Button testGraphicsButton;
     private boolean busy;
 
     @Override
@@ -133,6 +134,11 @@ public final class JSRFLauncherActivity extends Activity {
         launchButton.setOnClickListener(v -> launchGame());
         addButton(page, launchButton, dp(26));
 
+        testGraphicsButton = makeButton("Testar renderizador GLES 3.2");
+        testGraphicsButton.setOnClickListener(v ->
+                startActivity(new Intent(this, Gles32TestActivity.class)));
+        addButton(page, testGraphicsButton, dp(10));
+
         TextView footer = new TextView(this);
         footer.setText("Versão experimental · Requer um dispositivo ARM64 compatível com OpenGL ES 3.2");
         footer.setTextColor(Color.GRAY);
@@ -214,6 +220,7 @@ public final class JSRFLauncherActivity extends Activity {
         folderButton.setEnabled(true);
         imageButton.setEnabled(true);
         launchButton.setEnabled(BuildConfig.JSRF_RUNTIME_AVAILABLE && hasGame && graphicsOk);
+        testGraphicsButton.setEnabled(graphicsOk);
 
         if (!BuildConfig.JSRF_RUNTIME_AVAILABLE) {
             statusView.setText((hasGame
@@ -506,6 +513,7 @@ public final class JSRFLauncherActivity extends Activity {
             folderButton.setEnabled(false);
             imageButton.setEnabled(false);
             launchButton.setEnabled(false);
+            testGraphicsButton.setEnabled(false);
             statusView.setText(message);
         });
     }
