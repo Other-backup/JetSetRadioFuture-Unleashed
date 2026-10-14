@@ -18,7 +18,9 @@ elseif(APPLE)
     target_link_libraries(xbox_input PUBLIC platform
         "-framework GameController" "-framework Foundation")
 else()
-    find_package(SDL2 REQUIRED)
+    if(NOT ANDROID)
+        find_package(SDL2 REQUIRED)
+    endif()
     target_link_libraries(xbox_input PUBLIC platform SDL2::SDL2)
 endif()
 
