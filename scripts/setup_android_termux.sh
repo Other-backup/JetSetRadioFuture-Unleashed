@@ -25,6 +25,9 @@ step "Instalando ferramentas do Termux"
 pkg update -y
 pkg install -y git python python-pip clang cmake ninja make pkg-config curl wget unzip tar xz-utils openjdk-17
 mkdir -p "$HOME/Android" "$HOME/.cache/jsrf-gradle" "$HOME/.gradle"
+if [[ ! -d "$HOME/storage/shared" ]]; then
+  termux-setup-storage || true
+fi
 
 step "Baixando SDK ARM64"
 if [[ ! -x "$SDK/cmake/4.2.1/bin/cmake" || ! -x "$SDK/build-tools/35.0.0/aapt2" ]]; then
