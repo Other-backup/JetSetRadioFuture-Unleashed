@@ -57,20 +57,30 @@
 #  include <OpenGL/gl3.h>
 #  include <OpenGL/gl3ext.h>
 #elif defined(NV2A_GL_USE_SDL)
-#  include <SDL2/SDL.h>
-#  include <sys/stat.h>
-#  if defined(__APPLE__)
-#    include <OpenGL/gl3.h>
-#    include <OpenGL/gl3ext.h>
-#  elif defined(_WIN32)
-     /* opengl32.dll stops at OpenGL 1.1: everything after it is fetched from
-      * the driver at run time, which libepoxy does behind the usual names. */
-#    include <epoxy/gl.h>
-#    include <direct.h>
+#  if defined(__ANDROID__)
+#    include <SDL.h>
+#    include <GLES3/gl32.h>
+     /* OpenGL ES exposes the float variant of glClearDepth. */
+#    define glClearDepth glClearDepthf
+#    ifndef GL_DEPTH_CLAMP
+#      define GL_DEPTH_CLAMP 0x864F
+#    endif
 #  else
-#    include <GL/gl.h>
-#    include <GL/glext.h>
+#    include <SDL2/SDL.h>
+#    if defined(__APPLE__)
+#      include <OpenGL/gl3.h>
+#      include <OpenGL/gl3ext.h>
+#    elif defined(_WIN32)
+       /* opengl32.dll stops at OpenGL 1.1: everything after it is fetched from
+        * the driver at run time, which libepoxy does behind the usual names. */
+#      include <epoxy/gl.h>
+#      include <direct.h>
+#    else
+#      include <GL/gl.h>
+#      include <GL/glext.h>
+#    endif
 #  endif
+#  include <sys/stat.h>
 #else
 #  include <EGL/egl.h>
 #  include <EGL/eglext.h>
@@ -1012,6 +1022,11 @@ static int gl_init(uint32_t w, uint32_t h)
         fprintf(stderr, "  [GL] SDL_Init failed: %s\n", SDL_GetError());
         return 0;
     }
+#if defined(NV2A_GL_GLES)
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#else
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
@@ -1021,6 +1036,7 @@ static int gl_init(uint32_t w, uint32_t h)
      * game fails to compile. */
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS,
                         SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+#endif
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
@@ -5133,9 +5149,9 @@ static void do_draw(void)
        * Both probes write to neither colour nor depth, so the frame they
        * measure is the frame that would have been drawn anyway.
        */
-      /* (OpenGL only: an occlusion query is a GL object, and the probe sets
-       * GL state behind the device's back and puts it back afterwards.) */
-#ifdef NV2A_GL_HAVE_GL
+      /* (Desktop OpenGL only: this diagnostic relies on GL_SAMPLES_PASSED,
+       * which is not part of OpenGL ES. It does not affect normal rendering.) */
+#if defined(NV2A_GL_HAVE_GL) && !defined(NV2A_GL_GLES)
       if (g_is_gl && probe_this && !curtain_skip && !g_surf_lost && slot >= 0) {
           GLuint qo = 0;
           glGenQueries(1, &qo);
