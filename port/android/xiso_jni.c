@@ -42,5 +42,51 @@ Java_org_libsdl_app_XisoNative_extractXiso(JNIEnv *env, jclass clazz,
         return (*env)->NewStringUTF(env, "");
     if (error[0] == '\0')
         snprintf(error, sizeof(error), "Could not unpack the Xbox disc image.");
+
+    return (*env)->NewStringUTF(env, error);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_org_libsdl_app_XisoNative_probeXisoFd(JNIEnv *env, jclass clazz,
+                                           jint file_descriptor)
+{
+    char path[64];
+
+    (void)env;
+    (void)clazz;
+    if (file_descriptor < 0)
+        return JNI_FALSE;
+
+    snprintf(path, sizeof(path), "/proc/self/fd/%d", (int)file_descriptor);
+    return xiso_probe(path) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jstring JNICALL
+Java_org_libsdl_app_XisoNative_extractXisoFd(JNIEnv *env, jclass clazz,
+                                              jint file_descriptor,
+                                              jstring destination_path)
+{
+    char image_path[64];
+    const char *destination;
+    char error[512] = {0};
+    int rc;
+
+    (void)clazz;
+    if (file_descriptor < 0 || destination_path == NULL)
+        return (*env)->NewStringUTF(env, "Missing image or destination.");
+
+    snprintf(image_path, sizeof(image_path), "/proc/self/fd/%d",
+             (int)file_descriptor);
+    destination = (*env)->GetStringUTFChars(env, destination_path, NULL);
+    if (destination == NULL)
+        return (*env)->NewStringUTF(env, "Could not read the destination path.");
+
+    rc = xiso_extract(image_path, destination, NULL, NULL, error, sizeof(error));
+    (*env)->ReleaseStringUTFChars(env, destination_path, destination);
+
+    if (rc == 0)
+        return (*env)->NewStringUTF(env, "");
+    if (error[0] == '\0')
+        snprintf(error, sizeof(error), "Could not unpack the Xbox disc image.");
     return (*env)->NewStringUTF(env, error);
 }
