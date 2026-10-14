@@ -80,11 +80,21 @@ add_subdirectory("${JSRF_REPO}" "${CMAKE_BINARY_DIR}/xboxrecomp")
 
 file(GLOB JSRF_GEN_SOURCES CONFIGURE_DEPENDS "${JSRF_GEN_DIR}/*.c")
 
-add_executable(jsrf_recomp
-    main.c
-    recomp_manual.c
-    ${JSRF_GEN_SOURCES}
-)
+if(ANDROID)
+    # SDLActivity loads libmain.so and calls the entry point exported by SDL2.
+    add_library(jsrf_recomp SHARED
+        main.c
+        recomp_manual.c
+        ${JSRF_GEN_SOURCES}
+    )
+    set_target_properties(jsrf_recomp PROPERTIES OUTPUT_NAME "main")
+else()
+    add_executable(jsrf_recomp
+        main.c
+        recomp_manual.c
+        ${JSRF_GEN_SOURCES}
+    )
+endif()
 if(IOS)
     # The iPhone / iPad app around the engine (ios/jsrf_ios.m: the window,
     # the controls, the game in Documents) and the disc-image unpacker. The
@@ -135,6 +145,8 @@ if(WIN32 AND XBOXRECOMP_WIN_GL)
     target_link_options(jsrf_recomp PRIVATE "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/jsrf_recomp.map")
 elseif(WIN32)
     target_link_libraries(jsrf_recomp PRIVATE d3d11 dxgi dxguid xinput winmm dbghelp)
+elseif(ANDROID)
+    target_link_libraries(jsrf_recomp PRIVATE android log)
 else()
     target_link_libraries(jsrf_recomp PRIVATE pthread m dl)
     target_link_options(jsrf_recomp PRIVATE -rdynamic)
