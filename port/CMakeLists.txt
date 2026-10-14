@@ -71,7 +71,10 @@ if(ANDROID)
         # Compile the host entry point in importer CI even though the generated
         # game translation is absent. This catches Android/Bionic header and
         # API regressions in port/main.c without shipping game-derived code.
-        add_library(jsrf_android_host_check OBJECT main.c)
+        add_library(jsrf_android_host_check OBJECT
+            main.c
+            android/jsrf_android.c
+        )
         target_include_directories(jsrf_android_host_check PRIVATE
             "${CMAKE_CURRENT_SOURCE_DIR}"
             "${JSRF_REPO}/include"
