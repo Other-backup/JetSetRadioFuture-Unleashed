@@ -1012,33 +1012,7 @@ int main(int argc, char **argv)
         return 0;
     }
     g_argv = argv;
-#if defined(__ANDROID__)
-    /* Android's working directory is not a portable game folder. Use the
-     * app-specific external files directory so users can copy their own
-     * extracted NTSC-U game into .../files/game without broad storage access. */
-    {
-        const char *storage = SDL_AndroidGetExternalStoragePath();
-        static char game_dir[1024];
-        static char save_dir[1024];
-        static char settings_file[1024];
-        if (!storage || !*storage)
-            storage = SDL_AndroidGetInternalStoragePath();
-        if (storage && *storage) {
-            if (!getenv("JSRF_GAME_DIR")) {
-                snprintf(game_dir, sizeof game_dir, "%s/game", storage);
-                setenv("JSRF_GAME_DIR", game_dir, 1);
-            }
-            if (!getenv("JSRF_SAVE_DIR")) {
-                snprintf(save_dir, sizeof save_dir, "%s/Saves", storage);
-                setenv("JSRF_SAVE_DIR", save_dir, 1);
-            }
-            if (!getenv("JSRF_SETTINGS_FILE")) {
-                snprintf(settings_file, sizeof settings_file, "%s/settings", storage);
-                setenv("JSRF_SETTINGS_FILE", settings_file, 1);
-            }
-        }
-    }
-#endif
+
 #if defined(__APPLE__) && TARGET_OS_IPHONE
     /* iOS: UIKit owns the main thread and the process; the app (in
      * nv2a_window_ios.m) finds the game in its Documents folder, sets the
@@ -1048,6 +1022,14 @@ int main(int argc, char **argv)
     {
         extern int nv_ios_main(int argc, char **argv, int (*host)(void));
         return nv_ios_main(argc, argv, host_main);
+    }
+#endif
+#if defined(__ANDROID__)
+    /* SDLActivity supplies the game/data/cache paths and the Android host
+     * prepares the runtime environment before entering the recompiled game. */
+    {
+        extern int nv_android_main(int argc, char **argv, int (*host)(void));
+        return nv_android_main(argc, argv, host_main);
     }
 #endif
     if (argc > 1) g_game_dir_arg = argv[1];
