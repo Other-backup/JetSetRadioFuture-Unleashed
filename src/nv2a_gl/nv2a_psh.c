@@ -23,6 +23,13 @@
  * which is much harder to notice.
  */
 #include "nv2a_psh.h"
+
+#if defined(NV2A_GL_GLES)
+#define NV2A_GLSL_HEADER "#version 320 es\\nprecision highp float;\\nprecision highp int;\\n"
+#else
+#define NV2A_GLSL_HEADER "#version 330 core\\n"
+#endif
+
 #include "nv2a_vsh.h"   /* the varying struct both Metal stages share */
 #include "nv2a_backend.h"   /* the uniform table both dialects name */
 
@@ -261,7 +268,7 @@ static int psh_emit(const Nv2aPshState *ps, char *buf, int bufsize, int msl)
                    "};\n\n");
     } else {
         sb(&s,
-           "#version 330 core\n"
+           NV2A_GLSL_HEADER
            /* Set by the backend when RECOMP_GL_ZVIEW is on; see the epilogue
             * at the foot of this emitter for why depth has to travel out
             * through the colour buffer on this platform. */
