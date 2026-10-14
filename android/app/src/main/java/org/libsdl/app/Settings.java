@@ -23,7 +23,9 @@ final class Settings {
     private Settings() {}
 
     static File file(Context c) {
-        return new File(c.getExternalFilesDir(null), "settings");
+        File dir = c.getExternalFilesDir(null);
+        if (dir == null) dir = c.getFilesDir();
+        return new File(dir, "settings");
     }
 
     static int get(Context c, String key, int def) {
