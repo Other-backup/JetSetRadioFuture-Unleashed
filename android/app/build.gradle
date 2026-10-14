@@ -6,6 +6,7 @@ def sdlSource = new File(rootProject.projectDir, ".cache/SDL2").absolutePath
 def generatedCode = providers.gradleProperty("jsrfGenDir")
         .getOrElse(new File(projectDir, "../../port/recomp/gen").absolutePath)
 def hasGeneratedCode = new File(generatedCode, "recomp_types.h").isFile()
+def jsrfCmakeVersion = providers.gradleProperty("jsrfCmakeVersion").getOrElse("3.22.1")
 
 android {
     namespace "org.libsdl.app"
@@ -49,7 +50,7 @@ android {
     externalNativeBuild {
         cmake {
             path file("../../port/CMakeLists.txt")
-            version providers.gradleProperty("jsrfCmakeVersion").getOrElse("3.22.1")
+            version jsrfCmakeVersion
         }
     }
 
