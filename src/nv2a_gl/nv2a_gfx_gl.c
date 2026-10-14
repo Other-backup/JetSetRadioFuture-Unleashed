@@ -18,6 +18,7 @@
 #define GL_GLEXT_PROTOTYPES 1
 #if defined(NV2A_GL_GLES)
 #  include <GLES3/gl32.h>
+#  define glClearDepth glClearDepthf
 #  ifndef GL_DEPTH_CLAMP
 #    define GL_DEPTH_CLAMP 0x864F
 #  endif
