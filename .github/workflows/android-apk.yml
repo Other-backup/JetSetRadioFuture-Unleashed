@@ -1,0 +1,42 @@
+name: Android APK (importer shell)
+
+on:
+  push:
+    branches: [android-port]
+  pull_request:
+    branches: [android-port]
+  workflow_dispatch:
+
+jobs:
+  apk-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK packages
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0 ndk;27.2.12479018 cmake;3.22.1"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build Android APK
+        working-directory: android
+        run: gradle --no-daemon assembleDebug
+
+      - name: Publish debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jsrf-android-importer-arm64
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
