@@ -180,8 +180,8 @@ Java_org_libsdl_app_JSRFActivity_nativeTouch(JNIEnv *env, jclass cls, jint butto
 }
 
 /* Merged in by nv2a_gl.c's nv_window_keys; 1 while the controls show. */
-int nv_touch_keys(unsigned short *buttons, unsigned char *analog);
-int nv_touch_keys(unsigned short *buttons, unsigned char *analog)
+int nv_window_keys(unsigned short *buttons, unsigned char *analog);
+int nv_window_keys(unsigned short *buttons, unsigned char *analog)
 {
     int i, any = g_touch_shown || g_touch_buttons;
     *buttons = g_touch_buttons;
@@ -205,7 +205,7 @@ int nv_window_touch_stick(short *x, short *y)
 
 /* The settings: widescreen now (by the window's thread, as F10 does it). */
 int  nv2a_widescreen(void);
-void nv_window_request_widescreen(int on);
+void nv2a_set_widescreen(int on);
 
 JNIEXPORT jboolean JNICALL
 Java_org_libsdl_app_JSRFActivity_nativeWidescreen(JNIEnv *env, jclass cls)
@@ -218,7 +218,7 @@ JNIEXPORT void JNICALL
 Java_org_libsdl_app_JSRFActivity_nativeSetWidescreen(JNIEnv *env, jclass cls, jboolean on)
 {
     (void)env; (void)cls;
-    nv_window_request_widescreen(on ? 1 : 0);
+    nv2a_set_widescreen(on ? 1 : 0);
 }
 
 JNIEXPORT jstring JNICALL
