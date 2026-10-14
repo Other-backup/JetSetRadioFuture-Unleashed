@@ -38,6 +38,10 @@ tools/split/output/
 launcher/AppIcon.icns
 
 # Builds of the game (see port/CMakeLists.txt) and packaged apps
+android/.cache/
+android/.gradle/
+android/app/build/
+build-android/
 /build*/
 *.app/
 *.tar.gz
