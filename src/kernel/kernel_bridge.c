@@ -38,6 +38,9 @@
  * but only as warnings, and this file is compiled with /W4 /WX-. */
 #include <stdlib.h>
 #include <float.h>
+#if !defined(__ANDROID__)
+#include <execinfo.h>
+#endif
 #include <unistd.h>   /* usleep, for recomp_guest_spin_yield */
 #define SPIN_WITNESS_N 3
 #include <sched.h>    /* sched_yield, likewise */
@@ -7774,7 +7777,13 @@ void recomp_watch_hit(uint32_t a, uint32_t n)
     if (i == nseen && nseen < 64) {
         seen[nseen].ra = ra; seen[nseen].amin = a; seen[nseen].amax = a + n;
         seen[nseen].hits = 0;
+#if defined(__ANDROID__)
+        /* Bionic has no execinfo backtrace(); keep the first return address
+         * in the WATCH record but omit the optional native call-chain frames. */
+        seen[nseen].nbt = 0;
+#else
         seen[nseen].nbt = backtrace(seen[nseen].bt, 7);
+#endif
         nseen++;
     }
     if (i < nseen) {
