@@ -41,6 +41,7 @@ public class JSRFActivity extends SDLActivity
     @Override
     protected String[] getArguments() {
         File data = getExternalFilesDir(null);
+        if (data == null) data = getFilesDir();
         return new String[] {
             new File(data, "game").getAbsolutePath(),   /* default.xbe and Media/ */
             data.getAbsolutePath(),                      /* Logs/, settings, save/ */
