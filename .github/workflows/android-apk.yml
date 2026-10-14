@@ -22,7 +22,12 @@ jobs:
       - name: Install Android SDK packages
         uses: android-actions/setup-android@v3
         with:
-          packages: "platform-tools platforms;android-35 build-tools;35.0.0 ndk;27.2.12479018 cmake;3.22.1"
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
+            ndk;27.2.12479018
+            cmake;3.22.1
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -32,6 +37,12 @@ jobs:
       - name: Build Android APK
         working-directory: android
         run: gradle --no-daemon assembleDebug
+
+      - name: Verify importer APK contents
+        run: |
+          test -f android/app/build/outputs/apk/debug/app-debug.apk
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'lib/arm64-v8a/libjsrf_xiso.so'
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'classes.dex'
 
       - name: Publish debug APK artifact
         uses: actions/upload-artifact@v4
