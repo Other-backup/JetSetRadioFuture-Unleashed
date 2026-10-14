@@ -41,7 +41,9 @@
 #include <windows.h>
 #include <mmsystem.h>     /* timeBeginPeriod */
 #else
+#if !defined(__ANDROID__)
 #include <execinfo.h>
+#endif
 /* <ucontext.h> on Darwin is the deprecated getcontext/makecontext header and
  * refuses to compile without _XOPEN_SOURCE, which would in turn hide the BSD
  * declarations the rest of this file needs. All that is wanted from it is the
@@ -577,11 +579,15 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
                 fprintf(stderr, "    [rsp+%-5d] %s+0x%lx\n", i*8, di.dli_sname, (unsigned long)(v - (uintptr_t)di.dli_saddr)); shown++; }
         } }
     }
+#if defined(__ANDROID__)
+    fprintf(stderr, "  native backtrace omitted (not provided by Bionic).\n");
+#else
     {
         void *bt[32]; int n = backtrace(bt, 32);
         fprintf(stderr, "  native backtrace:\n");
         backtrace_symbols_fd(bt, n, 2);
     }
+#endif
     { extern void recomp_icallv_dump(void); recomp_icallv_dump(); }
     RECOMP_ICALL_FEEDBACK_DUMP();
     fflush(stderr);
