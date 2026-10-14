@@ -97,8 +97,9 @@ if (-not $SkipRecompile) {
     $analysisDir = Join-Path $repoRoot "build-android\analysis"
     $disasmDir = Join-Path $repoRoot "tools\disasm\output"
     $funcIdDir = Join-Path $repoRoot "tools\func_id\output"
+    $abiDir = Join-Path $repoRoot "tools\abi_analysis\output"
     $genDir = Join-Path $repoRoot "port\recomp\gen"
-    foreach ($directory in @($analysisDir, $disasmDir, $funcIdDir, $genDir)) {
+    foreach ($directory in @($analysisDir, $disasmDir, $funcIdDir, $abiDir, $genDir)) {
         if (Test-Path -LiteralPath $directory) {
             Remove-Item -LiteralPath $directory -Recurse -Force
         }
