@@ -5,17 +5,24 @@ plugins {
 def sdlSource = new File(rootProject.projectDir, ".cache/SDL2").absolutePath
 def generatedCode = providers.gradleProperty("jsrfGenDir")
         .getOrElse(new File(projectDir, "../../port/recomp/gen").absolutePath)
+def hasGeneratedCode = new File(generatedCode, "recomp_types.h").isFile()
 
 android {
     namespace "org.libsdl.app"
     compileSdk 35
 
+    buildFeatures {
+        buildConfig true
+    }
+
     defaultConfig {
         applicationId "org.otherbackup.jsrfunleashed"
         minSdk 23
         targetSdk 32
-        versionCode 1
-        versionName "0.1.0-android"
+        versionCode 2
+        versionName "0.2.0-android"
+
+        buildConfigField "boolean", "JSRF_RUNTIME_AVAILABLE", hasGeneratedCode ? "true" : "false"
 
         ndk {
             abiFilters "arm64-v8a"
@@ -24,7 +31,8 @@ android {
         externalNativeBuild {
             cmake {
                 arguments "-DFETCHCONTENT_SOURCE_DIR_SDL2=${sdlSource}",
-                          "-DJSRF_GEN_DIR=${generatedCode}"
+                          "-DJSRF_GEN_DIR=${generatedCode}",
+                          "-DJSRF_BUILD_GAME=${hasGeneratedCode ? 'ON' : 'OFF'}"
             }
         }
     }
@@ -50,4 +58,8 @@ android {
             java.srcDirs += ["${sdlSource}/android-project/app/src/main/java"]
         }
     }
+}
+
+dependencies {
+    implementation "androidx.documentfile:documentfile:1.0.1"
 }
