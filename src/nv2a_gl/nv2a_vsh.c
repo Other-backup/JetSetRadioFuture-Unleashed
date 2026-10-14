@@ -353,8 +353,14 @@ static void emit_ilu_expr(SB *sb, const Nv2aVshInsn *ins)
     }
 }
 
+#if defined(NV2A_GL_GLES)
+#define NV2A_GLSL_HEADER "#version 320 es\\nprecision highp float;\\nprecision highp int;\\n"
+#else
+#define NV2A_GLSL_HEADER "#version 330 core\\n"
+#endif
+
 static const char *GLSL_PRELUDE =
-"#version 330 core\n"
+NV2A_GLSL_HEADER
 "// NV2A vertex program, translated.\n"
 "// OpenGL's clip volume puts z in [-w, w]; the console's, like D3D's, in\n"
 "// [0, w]. The epilogue converts.\n"
