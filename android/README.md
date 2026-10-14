@@ -11,6 +11,30 @@ The game runtime is generated from the compatible US/NTSC-U executable and
 uses Android ARM64, SDL2 and OpenGL ES 3.2. Runtime rendering and gameplay have
 not yet been validated through a full playthrough on a physical device.
 
+## Build the playable APK directly on an Android phone (Termux)
+
+This path runs the XBE-to-C translation and Android build on an ARM64 phone; it does not require a PC or Android Studio. Install Termux from [F-Droid](https://f-droid.org/packages/com.termux/) or the [official GitHub releases](https://github.com/termux/termux-app/releases), not the obsolete Play Store build. Allow storage access when requested, set Termux battery use to unrestricted, and keep at least 12 GB of free space for the SDK/NDK, extracted game and generated C files.
+
+From Termux:
+
+```sh
+pkg install -y git
+git clone --branch android-port https://github.com/Other-backup/JetSetRadioFuture-Unleashed.git ~/JSRF-Unleashed
+cd ~/JSRF-Unleashed
+bash scripts/setup_android_termux.sh
+```
+
+The setup downloads an ARM64 SDK and NDK, Java 17, Android Platform 35 and Gradle 8.9. It is a one-time setup. Then put your own Xbox ISO/XISO in Downloads and run:
+
+```sh
+termux-setup-storage
+bash scripts/build_android_termux.sh "/storage/emulated/0/Download/JSRF.iso"
+```
+
+You can pass a folder already extracted from the disc or the path to `default.xbe` instead. The build script extracts an ISO/XISO, runs the parser, disassembler, function identification and static recompiler, and builds the ARM64 APK. If successful, it copies `JSRF-Unleashed-Android-debug.apk` to the phone's Downloads folder. Keep the phone awake and connected to power; Android may kill a long native compilation on a low-memory device.
+
+**Important:** this port's generated runtime is tied to a compatible US/NTSC-U `default.xbe`; an European release is not guaranteed to work. A successful APK build also does not yet mean gameplay is validated on every phone. The scripts are new and have not yet been verified end-to-end on physical Termux hardware; if they stop, copy the last error from Termux rather than restarting the entire setup.
+
 ## Build a playable APK on Windows without Android Studio
 
 Install these command-line tools:
