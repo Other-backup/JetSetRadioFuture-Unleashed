@@ -64,7 +64,32 @@ if(ANDROID)
     target_compile_features(jsrf_xiso PRIVATE c_std_11)
 
     if(NOT JSRF_BUILD_GAME)
-        message(STATUS "Building Android importer/XISO library only; game runtime is disabled")
+        # Compile the host entry point in importer CI even though the generated
+        # game translation is absent. This catches Android/Bionic header and
+        # API regressions in port/main.c without shipping game-derived code.
+        add_library(jsrf_android_host_check OBJECT main.c)
+        target_include_directories(jsrf_android_host_check PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}"
+            "${JSRF_REPO}/include"
+            "${JSRF_REPO}/src/platform"
+            "${JSRF_REPO}/src/kernel"
+            "${JSRF_REPO}/src/d3d"
+            "${JSRF_REPO}/src/audio"
+            "${JSRF_REPO}/src/input"
+            "${JSRF_REPO}/src/apu"
+            "${JSRF_REPO}/src/nv2a"
+            "${JSRF_REPO}/src/usb"
+            "${FETCHCONTENT_SOURCE_DIR_SDL2}/include"
+        )
+        target_compile_definitions(jsrf_android_host_check PRIVATE
+            RECOMP_ICALL_FEEDBACK
+            RECOMP_ABI_CHECK
+            WIN32_LEAN_AND_MEAN
+            NOMINMAX
+        )
+        target_compile_features(jsrf_android_host_check PRIVATE c_std_11)
+        target_compile_options(jsrf_android_host_check PRIVATE -Wall -Wextra)
+        message(STATUS "Building Android importer/XISO and checking the native game host")
         return()
     endif()
 endif()
