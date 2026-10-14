@@ -16,7 +16,12 @@
 #include "nv2a_backend.h"
 
 #define GL_GLEXT_PROTOTYPES 1
-#if defined(NV2A_GL_USE_CGL) || (defined(NV2A_GL_USE_SDL) && defined(__APPLE__))
+#if defined(NV2A_GL_GLES)
+#  include <GLES3/gl32.h>
+#  ifndef GL_DEPTH_CLAMP
+#    define GL_DEPTH_CLAMP 0x864F
+#  endif
+#elif defined(NV2A_GL_USE_CGL) || (defined(NV2A_GL_USE_SDL) && defined(__APPLE__))
 #  include <OpenGL/gl3.h>
 #  include <OpenGL/gl3ext.h>
 #elif defined(_WIN32)
@@ -157,9 +162,40 @@ static int glx_target_read(uint32_t h, uint32_t x, uint32_t y, uint32_t w,
     if (!rt_ok(h) || !out) return 0;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, g_rt[h - 1].fbo);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
+#if defined(NV2A_GL_GLES)
+    if (bgra) {
+        size_t pixels = (size_t)w * (size_t)ht;
+        uint8_t *rgba;
+        size_t i;
+        if ((ht && pixels / (size_t)ht != (size_t)w) || pixels > SIZE_MAX / 4u) {
+            if (rt_ok(g_cur_rt))
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, g_rt[g_cur_rt - 1].fbo);
+            return 0;
+        }
+        rgba = (uint8_t *)malloc(pixels * 4u);
+        if (!rgba) {
+            if (rt_ok(g_cur_rt))
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, g_rt[g_cur_rt - 1].fbo);
+            return 0;
+        }
+        glReadPixels((GLint)x, (GLint)y, (GLsizei)w, (GLsizei)ht,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+        for (i = 0; i < pixels; i++) {
+            ((uint8_t *)out)[i * 4u + 0] = rgba[i * 4u + 2];
+            ((uint8_t *)out)[i * 4u + 1] = rgba[i * 4u + 1];
+            ((uint8_t *)out)[i * 4u + 2] = rgba[i * 4u + 0];
+            ((uint8_t *)out)[i * 4u + 3] = rgba[i * 4u + 3];
+        }
+        free(rgba);
+    } else {
+        glReadPixels((GLint)x, (GLint)y, (GLsizei)w, (GLsizei)ht,
+                     GL_RGBA, GL_UNSIGNED_BYTE, out);
+    }
+#else
     glReadPixels((GLint)x, (GLint)y, (GLsizei)w, (GLsizei)ht,
                  bgra ? GL_BGRA : GL_RGBA,
                  bgra ? GL_UNSIGNED_INT_8_8_8_8_REV : GL_UNSIGNED_BYTE, out);
+#endif
     if (rt_ok(g_cur_rt))
         glBindFramebuffer(GL_READ_FRAMEBUFFER, g_rt[g_cur_rt - 1].fbo);
     return 1;
@@ -224,11 +260,47 @@ static void glx_tex_free(uint32_t t)
 
 static int glx_tex_read(uint32_t t, uint32_t w, uint32_t h, void *bgra)
 {
-    (void)w; (void)h;
     if (!t || !bgra) return 0;
+#if defined(NV2A_GL_GLES)
+    {
+        GLuint fbo = 0;
+        GLint old_fbo = 0;
+        size_t pixels = (size_t)w * (size_t)h;
+        uint8_t *rgba;
+        size_t i;
+        if ((h && pixels / (size_t)h != (size_t)w) || pixels > SIZE_MAX / 4u)
+            return 0;
+        rgba = (uint8_t *)malloc(pixels * 4u);
+        if (!rgba) return 0;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &old_fbo);
+        glGenFramebuffers(1, &fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D, (GLuint)t, 0);
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+            glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)old_fbo);
+            glDeleteFramebuffers(1, &fbo);
+            free(rgba);
+            return 0;
+        }
+        glPixelStorei(GL_PACK_ALIGNMENT, 1);
+        glReadPixels(0, 0, (GLsizei)w, (GLsizei)h, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+        for (i = 0; i < pixels; i++) {
+            ((uint8_t *)bgra)[i * 4u + 0] = rgba[i * 4u + 2];
+            ((uint8_t *)bgra)[i * 4u + 1] = rgba[i * 4u + 1];
+            ((uint8_t *)bgra)[i * 4u + 2] = rgba[i * 4u + 0];
+            ((uint8_t *)bgra)[i * 4u + 3] = rgba[i * 4u + 3];
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)old_fbo);
+        glDeleteFramebuffers(1, &fbo);
+        free(rgba);
+    }
+#else
+    (void)w; (void)h;
     scratch_bind(t);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glGetTexImage(GL_TEXTURE_2D, 0, GL_BGRA, GL_UNSIGNED_BYTE, bgra);
+#endif
     return 1;
 }
 
@@ -461,7 +533,9 @@ static void glx_state(const Nv2aRenderState *rs)
       clamp = force >= 0 ? force
             : ((rs->zclamp & 0xF0u) || rs->w_buffer) ? 1 : 0;
       if (clamp != g_last_clamp) {
+#if !defined(NV2A_GL_GLES)
           if (clamp) glEnable(GL_DEPTH_CLAMP); else glDisable(GL_DEPTH_CLAMP);
+#endif
           g_last_clamp = clamp;
       } }
     { static uint32_t last_cm = 0xFFFFFFFFu;
